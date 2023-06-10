@@ -1,26 +1,67 @@
 package dux_test
 
 import (
+	"context"
 	"testing"
+	"time"
+
+	"github.com/mleone10/dux"
 )
 
-func TestFileWatcher(t *testing.T) {
-	// fs := fstest.MapFS{
-	// 	"fileName": &fstest.MapFile{
-	// 		ModTime: time.Now(),
-	// 	},
-	// }
-	// var changed bool
+type mockWatcher struct {
+	Sig <-chan bool
+}
 
-	// go func() {
-	// 	dux.FileWatcher{fs, time.Millisecond * 200}.Watch(context.Background())
-	// 	changed = true
-	// }()
+func (m mockWatcher) Watch(ctx context.Context) {
+	<-m.Sig
+	return
+}
 
-	// fs["fileName"].ModTime = time.Now().Add(time.Hour * -1)
+type mockCloseable struct{}
 
-	// time.Sleep(time.Millisecond * 500)
-	// if !changed {
-	// 	t.Errorf("Expected modTime to be detected, but it was not")
-	// }
+func (m mockCloseable) Close() {}
+
+func TestFuncEngine(t *testing.T) {
+	actual, expected := 0, 4
+	sigChan := make(chan bool)
+
+	fe := dux.FuncEngine{
+		Func: func() dux.Closer {
+			actual++
+			return mockCloseable{}
+		},
+		Watcher: mockWatcher{
+			Sig: sigChan,
+		},
+	}
+
+	cancelCtx, cancelFn := context.WithCancel(context.Background())
+	go fe.Run(cancelCtx)
+
+	for i := 0; i < expected-1; i++ {
+		sigChan <- true
+	}
+	cancelFn()
+
+	if actual != expected {
+		t.Errorf("Expected %v invocations, got %v", expected, actual)
+	}
+}
+
+func TestTimeWatcher(t *testing.T) {
+	expected := time.Millisecond * 200
+	tw := dux.TimeWatcher{
+		Delay: expected,
+	}
+
+	start := time.Now()
+
+	tw.Watch(context.Background())
+
+	end := time.Now()
+
+	dur := end.Sub(start)
+	if dur < expected {
+		t.Errorf("TimeWatcher unblocked after %v, expected at least %v", dur, expected)
+	}
 }

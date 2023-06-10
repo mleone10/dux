@@ -19,16 +19,21 @@ type Watcher interface {
 	Watch(context.Context)
 }
 
-// An Engine combines a command, arguments, and a watcher which triggers a reload of the command.
-type Engine struct {
+// A Closer is any type with a Close() method.
+type Closer interface {
+	Close()
+}
+
+// ExecEngine combines a command, arguments, and a watcher which triggers a reload of the command.
+type ExecEngine struct {
 	Cmd     string
 	Args    []string
 	Watcher Watcher
 }
 
-// Run executes e.Cmd with arguments e.Args, then waits for e.Watcher to unblock.  When it does, Run kills the command and reruns it.  This continues until the context is cancelled.
+// Run executes ExecEngine.Cmd with ExecEngine.Args, then waits for ExecEngine.Watcher to unblock.  When it does, Run kills the command and reruns it.  This continues until the context is canceled.
 // TODO: Stop Run when context is canceled
-func (e Engine) Run(ctx context.Context) {
+func (e ExecEngine) Run(ctx context.Context) {
 	for {
 		cancelCtx, cancelFn := context.WithCancel(ctx)
 		runCommand(cancelCtx, e)
@@ -37,11 +42,26 @@ func (e Engine) Run(ctx context.Context) {
 	}
 }
 
-func runCommand(ctx context.Context, e Engine) {
+func runCommand(ctx context.Context, e ExecEngine) {
 	cmd := exec.CommandContext(ctx, e.Cmd, e.Args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	go cmd.Run()
+}
+
+// A FuncEngine combines a function (which returns a Closer) with a Watcher which triggers that function's reload.
+type FuncEngine struct {
+	Func    func() Closer
+	Watcher Watcher
+}
+
+// Run executes FuncEngine.Func, then waits for FuncEngine.Watcher to unblock.  When it does, Func's Close method is called and Func is rerun.
+func (e FuncEngine) Run(ctx context.Context) {
+	for {
+		closeable := e.Func()
+		e.Watcher.Watch(ctx)
+		closeable.Close()
+	}
 }
 
 // FileWatcher monitors a given file system, checking all files within at the given polling frequency.
@@ -50,7 +70,7 @@ type FileWatcher struct {
 	PollFreq   time.Duration
 }
 
-// Watch monitors the FileWatcher file system for changes, blocking until either the context is cancelled or a change is detected.
+// Watch monitors the FileWatcher file system for changes, blocking until either the context is canceled or a change is detected.
 func (fw FileWatcher) Watch(ctx context.Context) {
 	if fw.FileSystem == nil {
 		fw.FileSystem = os.DirFS(".")
@@ -106,4 +126,21 @@ func blockUntilChange(fw FileWatcher, ctx context.Context) {
 
 	// Wait for all goroutines to finish
 	wg.Wait()
+}
+
+// TimeWatcher is a Watcher that triggers at a set interval.
+type TimeWatcher struct {
+	Delay time.Duration
+}
+
+// Watch blocks until TimeWatcher.Delay duration passes or the context is canceled.
+func (t TimeWatcher) Watch(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(t.Delay):
+			return
+		}
+	}
 }

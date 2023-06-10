@@ -19,7 +19,7 @@ func main() {
 	cmdSlice := strings.Fields(*fCmd)
 	fSys := os.DirFS(*fDir)
 
-	dux.Engine{
+	dux.ExecEngine{
 		Cmd:  cmdSlice[0],
 		Args: cmdSlice[1:],
 		Watcher: dux.FileWatcher{
