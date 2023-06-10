@@ -8,7 +8,7 @@ Dux monitors all files in a directory and reloads a given program if any of thos
 ```
 Usage of dux:
   -c string
-    	command to execute
+    	linux shell command to execute
   -d string
     	directory to monitor for changes (default ".")
   -freq int

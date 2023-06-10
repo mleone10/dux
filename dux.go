@@ -12,7 +12,7 @@ import (
 )
 
 // TODO: Refactor this all to be testable...and add tests
-// TODO: Add verbose mode
+// TODO: Add verbose mode (it should print a picture of a duck)
 
 // A Watcher blocks until a trigger occurs or the context is canceled.
 type Watcher interface {

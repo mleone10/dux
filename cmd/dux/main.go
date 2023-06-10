@@ -12,7 +12,7 @@ import (
 
 func main() {
 	fDir := flag.String("d", ".", "directory to monitor for changes")
-	fCmd := flag.String("c", "", "command to execute")
+	fCmd := flag.String("c", "", "linux shell command to execute")
 	fFreq := flag.Int("freq", 1, "frequency at which the directory will be scanned, in seconds")
 	flag.Parse()
 
