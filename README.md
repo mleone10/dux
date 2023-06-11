@@ -4,8 +4,10 @@
 
 Dux monitors all files in a directory and reloads a given program if any of those files change.
 
-## Usage
-```
+## Installation and Usage
+```bash
+$ go install github.com/mleone10/dux/cmd/dux
+$ dux -h
 Usage of dux:
   -c string
     	linux shell command to execute

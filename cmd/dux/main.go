@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -15,6 +16,11 @@ func main() {
 	fCmd := flag.String("c", "", "linux shell command to execute")
 	fFreq := flag.Int("freq", 1, "frequency at which the directory will be scanned, in seconds")
 	flag.Parse()
+
+	if *fCmd == "" {
+		fmt.Println("Missing required command parameter ('-c').  Try again with a '-c' argument containing a valid shell command.")
+		os.Exit(1)
+	}
 
 	cmdSlice := strings.Fields(*fCmd)
 	fSys := os.DirFS(*fDir)
