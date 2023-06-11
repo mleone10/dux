@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -42,10 +43,22 @@ func (e ExecEngine) Run(ctx context.Context) {
 	}
 }
 
+// runCommand kicks off the ExecEngine's Cmd and Args asynchronously, then stops it and any child processes when the context is canceled.
 func runCommand(ctx context.Context, e ExecEngine) {
-	cmd := exec.CommandContext(ctx, e.Cmd, e.Args...)
+	// Don't use a CommandContext, as we want to do the killing ourselves.
+	// Using a CommandContext _and_ killing with a syscall results in the first child process (cmd) being killed, then its children.
+	// Since the parent isn't around to read the children's exit status, they become zombies.  Instead, manage it all manually.
+	cmd := exec.Command(e.Cmd, e.Args...)
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	go func() {
+		// Issue a SIGKILL to the entire process group when the context is canceled.
+		<-ctx.Done()
+		syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}()
+
 	go cmd.Run()
 }
 
